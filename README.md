@@ -31,7 +31,7 @@ Cloud Scheduler (every 5 min)
 ```bash
 cp .env.example .env
 # Edit .env with your GCP project ID and preferred region
-export SAFEGUARD_PROJECT=my-gcp-project
+export SAFEGUARD_PROJECT=<my-gcp-project>
 export SAFEGUARD_REGION=europe-west2   # must be in an allowed region
 ```
 
@@ -73,12 +73,12 @@ This builds the Docker image via Cloud Build, creates the Cloud Run Job, and cre
 ```bash
 # Load the 22-row demo dataset
 cd population
-SAFEGUARD_PROJECT=my-gcp-project python demo_populate.py
+SAFEGUARD_PROJECT=<my-gcp-project> python demo_populate.py
 
 # Wait one scheduler cycle (~5 min), then check results
-bq query --use_legacy_sql=false --project_id=my-gcp-project \
+bq query --use_legacy_sql=false --project_id=<my-gcp-project> \
   'SELECT username, violation, category, confidence, rationale
-   FROM `my-gcp-project.safeguard.user_prompts_enriched`
+   FROM `<my-gcp-project>.safeguard.user_prompts_enriched`
    ORDER BY classified_at DESC LIMIT 20'
 ```
 
@@ -106,7 +106,7 @@ python ai_test.py --demo
 python ai_test.py --file prompts.txt
 
 # BigQuery mode (same as the Cloud Run Job)
-SAFEGUARD_PROJECT=my-gcp-project python ai_test.py --bigquery
+SAFEGUARD_PROJECT=<my-gcp-project> python ai_test.py --bigquery
 ```
 
 ## Evaluation Dataset
@@ -121,7 +121,7 @@ SAFEGUARD_PROJECT=my-gcp-project python ai_test.py --bigquery
 | Benign | 50 | `benign_user` |
 
 ```bash
-SAFEGUARD_PROJECT=my-gcp-project python population/repopulate_user_prompts.py
+SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 ```
 
 ## Environment Variables
