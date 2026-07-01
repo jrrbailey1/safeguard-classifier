@@ -1,0 +1,22 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit it (it contains your project ID).
+
+# ── Required ───────────────────────────────────────────────────────────────────
+project_id = "my-gcp-project"
+region     = "europe-west2"
+
+# ── Optional — defaults are production-proven values ──────────────────────────
+# Machine type and GPU. g2-standard-12 (1× L4) is the default.
+# If europe-west2 capacity is unavailable, try g2-standard-24 (2× L4)
+# or a2-highgpu-1g (A100 40GB) — update accelerator_type to NVIDIA_TESLA_A100.
+machine_type      = "g2-standard-12"
+accelerator_type  = "NVIDIA_L4"
+accelerator_count = 1
+
+# Context window. Confirmed limit for this Vertex AI deployment is 4096.
+# Increase only if deploying on a larger machine with a longer-context config.
+# max_model_len = "4096"
+
+# Replica settings (min=1 keeps the endpoint always warm)
+min_replica_count = 1
+max_replica_count = 2

@@ -1,0 +1,6 @@
+# Ignore everything by default, then explicitly allow only what the build needs
+*
+!Dockerfile
+!requirements.txt
+!ai_test.py
+!bigquery_io.py

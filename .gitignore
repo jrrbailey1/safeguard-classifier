@@ -1,0 +1,32 @@
+# Python virtual environment
+safeguard/
+venv/
+.venv/
+env/
+
+# Compiled Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Local model weights downloaded from HuggingFace (not needed for deployment)
+gpt-oss-safeguard-20b/
+
+# Terraform state and local overrides
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+!terraform/terraform.tfvars.example
+
+# Environment variable files
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Misc
+*.zip
+*.png
+*.jpg
