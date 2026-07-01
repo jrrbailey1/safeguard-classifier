@@ -18,7 +18,6 @@ REGION="${SAFEGUARD_REGION:-europe-west2}"
 DATASET="${SAFEGUARD_DATASET:-safeguard}"
 REPO="${SAFEGUARD_REPO:-safeguard}"
 BUILD_BUCKET="${SAFEGUARD_BUILD_BUCKET:-${PROJECT}-cloudbuild-${REGION}}"
-JOB_NAME="${SAFEGUARD_JOB:-safeguard-classifier}"
 
 echo "=== Safeguard Classifier — Infrastructure Setup ==="
 echo "Project : $PROJECT"
@@ -87,7 +86,7 @@ PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumb
 COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 SCHEDULER_SA="safeguard-scheduler@${PROJECT}.iam.gserviceaccount.com"
 
-# Cloud Run Job (Compute SA) needs BigQuery and Vertex AI access
+# Cloud Run Job (Compute SA) needs BigQuery, Vertex AI, and Artifact Registry access
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:$COMPUTE_SA" \
   --role="roles/bigquery.dataEditor" --condition=None --quiet
@@ -97,6 +96,10 @@ gcloud projects add-iam-policy-binding "$PROJECT" \
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member="serviceAccount:$COMPUTE_SA" \
   --role="roles/aiplatform.user" --condition=None --quiet
+# Cloud Run Jobs pull their container image from Artifact Registry at startup
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:$COMPUTE_SA" \
+  --role="roles/artifactregistry.reader" --condition=None --quiet
 
 # Create scheduler service account if it doesn't exist
 if ! gcloud iam service-accounts describe "$SCHEDULER_SA" --project="$PROJECT" &>/dev/null; then

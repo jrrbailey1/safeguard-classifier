@@ -41,7 +41,7 @@ resource "google_vertex_ai_model" "gpt_oss_safeguard" {
       "--model=${var.model_id}",
       "--tensor-parallel-size=${var.accelerator_count}",
       "--gpu-memory-utilization=${var.gpu_memory_utilization}",
-      "--max-model-len=16384",
+      "--max-model-len=${var.max_model_len}",
       "--dtype=${var.dtype}",
       "--max-num-seqs=${var.max_num_seqs}",
       "--disable-log-stats",

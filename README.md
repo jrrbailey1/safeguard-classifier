@@ -17,9 +17,10 @@ Cloud Scheduler (every 5 min)
 
 ## Prerequisites
 
-- [gcloud CLI](https://cloud.google.com/sdk/docs/install) — authenticated (`gcloud auth login`)
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) — run `gcloud auth login` AND `gcloud auth application-default login` (Terraform needs ADC)
 - [Terraform](https://developer.hashicorp.com/terraform/install) ≥ 1.5
 - [bq CLI](https://cloud.google.com/bigquery/docs/bq-command-line-tool) (included with gcloud SDK)
+- `envsubst` — included on Linux/Cloud Shell; on macOS: `brew install gettext`
 - A GCP project with billing enabled
 - [GitHub CLI](https://cli.github.com/) (`gh`) if cloning from a private repo
 

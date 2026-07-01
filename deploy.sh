@@ -22,7 +22,6 @@ JOB_NAME="${SAFEGUARD_JOB:-safeguard-classifier}"
 SCHEDULER_JOB="${JOB_NAME}-trigger"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/classifier:latest"
 
-PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
 SCHEDULER_SA="safeguard-scheduler@${PROJECT}.iam.gserviceaccount.com"
 
 echo "=== Safeguard Classifier — Deploy ==="

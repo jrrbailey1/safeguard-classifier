@@ -68,17 +68,16 @@ VALUES
 
 
 -- ─────────────────────────────────────────────
--- Useful query: find all prompts not yet
--- classified (used by the pipeline to decide
--- which rows to process).
+-- Reference query: find all prompts not yet
+-- classified. Run manually to check the queue.
 -- ─────────────────────────────────────────────
-SELECT
-    p.prompt_id,
-    p.username,
-    p.prompt_text,
-    p.created_at
-FROM `${SAFEGUARD_PROJECT}.${SAFEGUARD_DATASET}.user_prompts` p
-LEFT JOIN `${SAFEGUARD_PROJECT}.${SAFEGUARD_DATASET}.user_prompts_enriched` e
-    ON p.prompt_id = e.prompt_id
-WHERE e.prompt_id IS NULL
-ORDER BY p.created_at ASC;
+-- SELECT
+--     p.prompt_id,
+--     p.username,
+--     p.prompt_text,
+--     p.created_at
+-- FROM `${SAFEGUARD_PROJECT}.${SAFEGUARD_DATASET}.user_prompts` p
+-- LEFT JOIN `${SAFEGUARD_PROJECT}.${SAFEGUARD_DATASET}.user_prompts_enriched` e
+--     ON p.prompt_id = e.prompt_id
+-- WHERE e.prompt_id IS NULL
+-- ORDER BY p.created_at ASC;
