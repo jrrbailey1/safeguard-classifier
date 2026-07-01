@@ -1,6 +1,6 @@
 # Safeguard Classifier
 
-An automated pipeline that screens user prompts for safety violations before they reach an LLM. Detects prompt injection, jailbreaks, red-team reconnaissance, harassment, hate speech, and violence using [gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b) hosted on Vertex AI.
+An automated pipeline that screens user prompts for safety violations. Detects prompt injection, jailbreaks, red-team reconnaissance, harassment, hate speech, and violence using [gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b) hosted on Vertex AI.
 
 **Production performance:** 98-100% recall across attack categories, 0% false positive rate on a 200-row balanced test dataset.
 
@@ -158,5 +158,3 @@ SAFEGUARD_PROJECT=my-gcp-project python population/repopulate_user_prompts.py
 - **Atomic row claiming:** each Cloud Run execution stamps rows with its own ID before reading, preventing duplicate processing when multiple executions overlap.
 - **4,096-token context budget:** the Vertex AI endpoint has a confirmed 4,096 total token limit (input + output). System prompt is ~2,000 tokens; user input is capped at 6,000 chars (~1,500 tokens); JSON output needs ~80-120 tokens.
 - **`response_format: json_object`:** forces the model to output JSON immediately without preamble, critical given the tight token budget.
-
-See [handoff.md](handoff.md) for full project history and all failure modes discovered during development.
