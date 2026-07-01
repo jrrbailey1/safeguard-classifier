@@ -14,7 +14,6 @@ Cloud Scheduler (every 5 min)
             └── BigQuery: write results to user_prompts_enriched
 ```
 
-See [architecture.md](architecture.md) for a full Mermaid diagram.
 
 ## Prerequisites
 
