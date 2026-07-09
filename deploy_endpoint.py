@@ -7,7 +7,7 @@ Hardware:    g2-standard-12 (1x NVIDIA L4, 24GB VRAM)
 Context:     4,096 tokens
 
 Use this to bring the production endpoint back up after undeploying.
-The endpoint ID is preserved so ai_test.py requires no changes.
+The endpoint ID is preserved so classifier.py requires no changes.
 """
 
 from google.cloud import aiplatform
@@ -41,4 +41,4 @@ endpoint.deploy(
 )
 
 print(f"\nEndpoint {ENDPOINT_ID} is back online.")
-print(f"No changes needed in ai_test.py — endpoint ID is unchanged.")
+print(f"No changes needed in classifier.py — endpoint ID is unchanged.")

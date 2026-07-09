@@ -4,11 +4,11 @@ Classifies text content against a safety policy and returns structured JSON
 with violation status, category, confidence, trigger quote, and rationale.
 
 Usage:
- safeguard.py --demo # Run built-in examples
- safeguard.py --file inputs.txt # Batch classify (one per line)
- safeguard.py --file data.jsonl --jsonl # Batch classify JSONL
- echo "text" | safeguard.py # Single from stdin
- cat file.txt | safeguard.py --batch # Parallel from stdin
+ classifier.py --demo # Run built-in examples
+ classifier.py --file inputs.txt # Batch classify (one per line)
+ classifier.py --file data.jsonl --jsonl # Batch classify JSONL
+ echo "text" | classifier.py # Single from stdin
+ cat file.txt | classifier.py --batch # Parallel from stdin
 """
 
 from __future__ import annotations

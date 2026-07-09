@@ -10,10 +10,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source files
-COPY ai_test.py .
+COPY classifier.py .
 COPY bigquery_io.py .
 
 # Cloud Run Jobs execute a command to completion and exit.
 # The --bigquery flag tells the script to read from user_prompts,
 # classify, and write to user_prompts_enriched.
-ENTRYPOINT ["python", "ai_test.py", "--bigquery"]
+ENTRYPOINT ["python", "classifier.py", "--bigquery"]

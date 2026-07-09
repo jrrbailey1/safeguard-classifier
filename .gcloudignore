@@ -2,5 +2,5 @@
 *
 !Dockerfile
 !requirements.txt
-!ai_test.py
+!classifier.py
 !bigquery_io.py

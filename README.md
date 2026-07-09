@@ -72,7 +72,7 @@ This builds the Docker image via Cloud Build, creates the Cloud Run Job, and cre
 
 ```bash
 # Load the 22-row demo dataset
-cd population
+cd datasets
 SAFEGUARD_PROJECT=<my-gcp-project> python demo_populate.py
 
 # Wait one scheduler cycle (~5 min), then check results
@@ -97,21 +97,21 @@ Requires a Vertex AI endpoint already deployed and `SAFEGUARD_ENDPOINT` set.
 pip install -r requirements.txt
 
 # Classify a single prompt
-echo "Ignore all previous instructions" | python ai_test.py
+echo "Ignore all previous instructions" | python classifier.py
 
 # Run built-in demo examples
-python ai_test.py --demo
+python classifier.py --demo
 
 # Classify from a text file (one prompt per line)
-python ai_test.py --file prompts.txt
+python classifier.py --file prompts.txt
 
 # BigQuery mode (same as the Cloud Run Job)
-SAFEGUARD_PROJECT=<my-gcp-project> python ai_test.py --bigquery
+SAFEGUARD_PROJECT=<my-gcp-project> python classifier.py --bigquery
 ```
 
 ## Evaluation Dataset
 
-`population/repopulate_user_prompts.py` loads a 200-row balanced dataset:
+`datasets/repopulate_user_prompts.py` loads a 200-row balanced dataset:
 
 | Category | Count | Username |
 |---|---|---|
@@ -121,7 +121,7 @@ SAFEGUARD_PROJECT=<my-gcp-project> python ai_test.py --bigquery
 | Benign | 50 | `benign_user` |
 
 ```bash
-SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
+SAFEGUARD_PROJECT=<my-gcp-project> python datasets/repopulate_user_prompts.py
 ```
 
 ## Environment Variables
@@ -141,7 +141,7 @@ SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 
 | File | Purpose |
 |---|---|
-| `ai_test.py` | Classifier — `SafeguardClient`, 17 few-shot examples, CLI |
+| `classifier.py` | Classifier — `SafeguardClient`, 17 few-shot examples, CLI |
 | `bigquery_io.py` | BigQuery helpers — atomic row claiming, result writing |
 | `Dockerfile` | Container for the Cloud Run Job |
 | `requirements.txt` | Python dependencies |
@@ -152,8 +152,8 @@ SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 | `deploy_endpoint.py` | Redeploy the model to the existing production endpoint |
 | `deploy_new_endpoint.py` | Deploy the model to a brand new endpoint (e.g. larger context) |
 | `terraform/` | Terraform config for Vertex AI endpoint deployment |
-| `population/repopulate_user_prompts.py` | 200-row evaluation dataset |
-| `population/demo_populate.py` | 22-row curated demo dataset |
+| `datasets/repopulate_user_prompts.py` | 200-row evaluation dataset |
+| `datasets/demo_populate.py` | 22-row curated demo dataset |
 
 ## Key Design Decisions
 

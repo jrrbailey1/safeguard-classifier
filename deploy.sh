@@ -2,7 +2,7 @@
 # deploy.sh — build and deploy the Safeguard Classifier pipeline.
 #
 # Run this after setup.sh and after the Vertex AI endpoint is live.
-# Re-run any time you change ai_test.py or bigquery_io.py.
+# Re-run any time you change classifier.py or bigquery_io.py.
 #
 # Usage:
 #   export SAFEGUARD_PROJECT=my-gcp-project

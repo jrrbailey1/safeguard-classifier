@@ -8,7 +8,7 @@ Current configuration: g2-standard-24 (2x NVIDIA L4, 48GB VRAM)
 Context window: 16,384 tokens — supports longer user prompts than the production endpoint.
 
 After deployment the script prints the new endpoint ID.
-Set SAFEGUARD_ENDPOINT=<new_id> or update ai_test.py line 37 to use it.
+Set SAFEGUARD_ENDPOINT=<new_id> or update ENDPOINT_ID in classifier.py to use it.
 """
 
 import vertexai
@@ -47,4 +47,4 @@ print(f"\nEndpoint deployed successfully.")
 print(f"Endpoint ID: {endpoint.name.split('/')[-1]}")
 print(f"\nTo use this endpoint:")
 print(f"  Set SAFEGUARD_ENDPOINT={endpoint.name.split('/')[-1]}")
-print(f"  Or update ENDPOINT_ID in ai_test.py line 37.")
+print(f"  Or update ENDPOINT_ID in classifier.py.")
