@@ -1,8 +1,8 @@
 # Safeguard Classifier
 
-An automated pipeline that screens user prompts for safety violations. Detects prompt injection, jailbreaks, red-team reconnaissance, harassment, hate speech, and violence using [gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b) hosted on Vertex AI.
+An automated SOC detection pipeline that screens user prompts for attacks against or abuse of the AI system itself. Detects prompt injection, jailbreaks, cyber exploitation (malware/exploit development), credential harvesting, and red-team reconnaissance using [gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b) hosted on Vertex AI.
 
-**Production performance:** 98-100% recall across attack categories, 0% false positive rate on a 200-row balanced test dataset.
+**Production performance:** 98-100% recall, 0% false positive rate on prompt injection, jailbreak, and red-team categories (200-row balanced test dataset). `cyber_exploitation` and `credential_harvesting` were added after that evaluation and have no test coverage yet — re-run the evaluation against the current category set before relying on these numbers for them.
 
 ## Architecture
 
@@ -135,13 +135,13 @@ SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 | `SAFEGUARD_REPO` | No | `safeguard` | Artifact Registry repo name |
 | `SAFEGUARD_BUILD_BUCKET` | No | `{project}-cloudbuild-{region}` | Cloud Build staging bucket |
 | `SAFEGUARD_JOB` | No | `safeguard-classifier` | Cloud Run Job name |
-| `SAFEGUARD_MAX_INPUT_CHARS` | No | `6000` | Max prompt chars before truncation |
+| `SAFEGUARD_MAX_INPUT_CHARS` | No | `4000` | Max prompt chars before truncation |
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `ai_test.py` | Classifier — `SafeguardClient`, 15 few-shot examples, CLI |
+| `ai_test.py` | Classifier — `SafeguardClient`, 17 few-shot examples, CLI |
 | `bigquery_io.py` | BigQuery helpers — atomic row claiming, result writing |
 | `Dockerfile` | Container for the Cloud Run Job |
 | `requirements.txt` | Python dependencies |
@@ -149,6 +149,8 @@ SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 | `.gcloudignore` | Cloud Build allowlist (only the 4 production files) |
 | `setup.sh` | One-time GCP infrastructure setup |
 | `deploy.sh` | Build image + create/update Cloud Run Job + Scheduler |
+| `deploy_endpoint.py` | Redeploy the model to the existing production endpoint |
+| `deploy_new_endpoint.py` | Deploy the model to a brand new endpoint (e.g. larger context) |
 | `terraform/` | Terraform config for Vertex AI endpoint deployment |
 | `population/repopulate_user_prompts.py` | 200-row evaluation dataset |
 | `population/demo_populate.py` | 22-row curated demo dataset |
@@ -157,5 +159,5 @@ SAFEGUARD_PROJECT=<my-gcp-project> python population/repopulate_user_prompts.py
 
 - **Batch load over streaming inserts:** `bigquery_io.py` uses `load_table_from_json` (not `insert_rows_json`) for all BigQuery writes. Streaming inserts are blocked after `CREATE OR REPLACE TABLE`, causing silent write failures.
 - **Atomic row claiming:** each Cloud Run execution stamps rows with its own ID before reading, preventing duplicate processing when multiple executions overlap.
-- **4,096-token context budget:** the Vertex AI endpoint has a confirmed 4,096 total token limit (input + output). System prompt is ~2,000 tokens; user input is capped at 6,000 chars (~1,500 tokens); JSON output needs ~80-120 tokens.
+- **4,096-token context budget:** the Vertex AI endpoint has a confirmed 4,096 total token limit (input + output). System prompt is ~2,450 tokens (17 few-shot examples across 8 SOC-scoped categories); user input is capped at 4,000 chars (~1,000 tokens); JSON output needs ~80-120 tokens.
 - **`response_format: json_object`:** forces the model to output JSON immediately without preamble, critical given the tight token budget.

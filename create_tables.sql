@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `${SAFEGUARD_PROJECT}.${SAFEGUARD_DATASET}.user_promp
     username       STRING    NOT NULL  OPTIONS (description = 'Username of the person who submitted the prompt'),
     prompt_text    STRING    NOT NULL  OPTIONS (description = 'The raw text that was classified'),
     violation      BOOL      NOT NULL  OPTIONS (description = 'True if the safeguard model flagged this prompt'),
-    category       STRING              OPTIONS (description = 'Violation category: harassment | hate_speech | violence | prompt_injection | jailbreak | red_team_recon | red_team_bypass | red_team_probe | red_team_vuln | null'),
+    category       STRING              OPTIONS (description = 'Violation category: prompt_injection | jailbreak | cyber_exploitation | credential_harvesting | red_team_recon | red_team_bypass | red_team_probe | red_team_vuln | null'),
     subcategory    STRING              OPTIONS (description = 'Specific technique within the category, e.g. direct_override, fictional_framing'),
     confidence     STRING    NOT NULL  OPTIONS (description = 'Model confidence: high | medium | low'),
     trigger        STRING              OPTIONS (description = 'Shortest phrase from the prompt that identifies the violation'),

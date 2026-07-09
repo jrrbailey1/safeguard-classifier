@@ -30,3 +30,6 @@ terraform/*.tfvars
 *.zip
 *.png
 *.jpg
+
+# Personal build-tracking notes for other GCP projects — not part of this deployment
+new_gcp_project_build_status.md
