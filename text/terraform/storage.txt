@@ -1,0 +1,20 @@
+# Cloud Build needs a bucket to stage the build context (source) it uploads before
+# building the image. Uniform bucket-level access is on; CMEK applied if enabled.
+resource "google_storage_bucket" "build" {
+  name                        = local.build_bucket
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = false
+
+  dynamic "encryption" {
+    for_each = var.enable_cmek ? [1] : []
+    content {
+      default_kms_key_name = local.storage_kms_key
+    }
+  }
+
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.storage,
+  ]
+}

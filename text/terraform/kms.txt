@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional CMEK — references EXISTING keys you created out of band.
+#
+# This file looks keys up (data sources) rather than creating them, so it will
+# not collide with the key ring / keys you already made by hand. Set the key
+# names in terraform.tfvars. If you only created one key, leave kms_key_bq and
+# kms_key_storage empty and they fall back to reusing kms_key_ar.
+#
+# The ring may live in a different project than the resources it encrypts
+# (kms_project_id) — this is a normal CMEK pattern (central security project
+# owns the keys, workload projects are granted use of them).
+#
+# Terraform still (idempotently) asserts that each service's agent can use the
+# key it needs — re-applying an existing grant is a no-op, so this is safe even
+# for the Artifact Registry grant you already added manually.
+# ─────────────────────────────────────────────────────────────────────────────
+
+locals {
+  kms_project = var.kms_project_id != "" ? var.kms_project_id : var.project_id
+  # Fall back to the Artifact Registry key when the others are left blank.
+  bq_key_name      = var.kms_key_bq != "" ? var.kms_key_bq : var.kms_key_ar
+  storage_key_name = var.kms_key_storage != "" ? var.kms_key_storage : var.kms_key_ar
+}
+
+data "google_kms_key_ring" "this" {
+  count    = var.enable_cmek ? 1 : 0
+  project  = local.kms_project
+  name     = var.kms_keyring_name
+  location = var.region
+}
+
+data "google_kms_crypto_key" "artifact_registry" {
+  count    = var.enable_cmek ? 1 : 0
+  name     = var.kms_key_ar
+  key_ring = data.google_kms_key_ring.this[0].id
+}
+
+data "google_kms_crypto_key" "bigquery" {
+  count    = var.enable_cmek ? 1 : 0
+  name     = local.bq_key_name
+  key_ring = data.google_kms_key_ring.this[0].id
+}
+
+data "google_kms_crypto_key" "storage" {
+  count    = var.enable_cmek ? 1 : 0
+  name     = local.storage_key_name
+  key_ring = data.google_kms_key_ring.this[0].id
+}
+
+# Service agents that must be able to use their key. BigQuery and Storage expose
+# GA data sources that also guarantee the agent exists; Artifact Registry's agent
+# follows the documented stable email format and is provisioned by API enablement.
+data "google_bigquery_default_service_account" "bq" {
+  count = var.enable_cmek ? 1 : 0
+}
+
+data "google_storage_project_service_account" "gcs" {
+  count = var.enable_cmek ? 1 : 0
+}
+
+resource "google_kms_crypto_key_iam_member" "artifact_registry" {
+  count         = var.enable_cmek ? 1 : 0
+  crypto_key_id = data.google_kms_crypto_key.artifact_registry[0].id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:service-${local.project_number}@gcp-sa-artifactregistry.iam.gserviceaccount.com"
+  depends_on    = [google_project_service.services]
+}
+
+resource "google_kms_crypto_key_iam_member" "bigquery" {
+  count         = var.enable_cmek ? 1 : 0
+  crypto_key_id = data.google_kms_crypto_key.bigquery[0].id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${data.google_bigquery_default_service_account.bq[0].email}"
+}
+
+resource "google_kms_crypto_key_iam_member" "storage" {
+  count         = var.enable_cmek ? 1 : 0
+  crypto_key_id = data.google_kms_crypto_key.storage[0].id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  member        = "serviceAccount:${data.google_storage_project_service_account.gcs[0].email_address}"
+}
+
+locals {
+  ar_kms_key      = var.enable_cmek ? data.google_kms_crypto_key.artifact_registry[0].id : null
+  bq_kms_key      = var.enable_cmek ? data.google_kms_crypto_key.bigquery[0].id : null
+  storage_kms_key = var.enable_cmek ? data.google_kms_crypto_key.storage[0].id : null
+}

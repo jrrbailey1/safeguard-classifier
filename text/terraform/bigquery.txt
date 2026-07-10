@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# BigQuery dataset + the two pipeline tables. Schemas mirror create_tables.sql.
+#
+# deletion_protection is false so `terraform destroy` can tear the stack down
+# cleanly. Flip these to true (or set via a tfvar) once the tables hold data you
+# care about.
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "google_bigquery_dataset" "safeguard" {
+  dataset_id  = var.dataset_name
+  location    = var.region
+  description = "Safeguard classifier input queue and enriched results"
+
+  dynamic "default_encryption_configuration" {
+    for_each = var.enable_cmek ? [1] : []
+    content {
+      kms_key_name = local.bq_kms_key
+    }
+  }
+
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.bigquery,
+  ]
+}
+
+resource "google_bigquery_table" "user_prompts" {
+  dataset_id          = google_bigquery_dataset.safeguard.dataset_id
+  table_id            = "user_prompts"
+  description         = "Raw user prompts awaiting safety classification"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "prompt_id", type = "STRING", mode = "REQUIRED", description = "Unique identifier for the prompt (UUID)" },
+    { name = "username", type = "STRING", mode = "REQUIRED", description = "Username of the person who submitted the prompt" },
+    { name = "prompt_text", type = "STRING", mode = "REQUIRED", description = "The raw text submitted by the user" },
+    { name = "created_at", type = "TIMESTAMP", mode = "REQUIRED", description = "UTC timestamp of when the prompt was submitted" },
+    { name = "claimed_by", type = "STRING", mode = "NULLABLE", description = "Execution ID that has claimed this row for classification" },
+    { name = "claimed_at", type = "TIMESTAMP", mode = "NULLABLE", description = "UTC timestamp of when this row was claimed" },
+  ])
+}
+
+resource "google_bigquery_table" "user_prompts_enriched" {
+  dataset_id          = google_bigquery_dataset.safeguard.dataset_id
+  table_id            = "user_prompts_enriched"
+  description         = "Safety classification results enriched from user_prompts"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "prompt_id", type = "STRING", mode = "REQUIRED", description = "Foreign key back to user_prompts.prompt_id" },
+    { name = "username", type = "STRING", mode = "REQUIRED", description = "Username of the person who submitted the prompt" },
+    { name = "prompt_text", type = "STRING", mode = "REQUIRED", description = "The raw text that was classified" },
+    { name = "violation", type = "BOOL", mode = "REQUIRED", description = "True if the safeguard model flagged this prompt" },
+    { name = "category", type = "STRING", mode = "NULLABLE", description = "Violation category, or null if no violation" },
+    { name = "subcategory", type = "STRING", mode = "NULLABLE", description = "Specific technique within the category" },
+    { name = "confidence", type = "STRING", mode = "REQUIRED", description = "Model confidence: high | medium | low" },
+    { name = "trigger", type = "STRING", mode = "NULLABLE", description = "Shortest phrase from the prompt that identifies the violation" },
+    { name = "rationale", type = "STRING", mode = "REQUIRED", description = "One-sentence explanation of the classification decision" },
+    { name = "classified_at", type = "TIMESTAMP", mode = "REQUIRED", description = "UTC timestamp of when classification completed" },
+  ])
+}

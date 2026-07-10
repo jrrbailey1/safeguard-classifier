@@ -1,0 +1,20 @@
+# Enable every API the pipeline needs. Terraform will not disable them on destroy
+# (disable_on_destroy = false) so tearing down this stack never yanks APIs out from
+# under other workloads sharing the project.
+resource "google_project_service" "services" {
+  for_each = toset([
+    "aiplatform.googleapis.com",
+    "bigquery.googleapis.com",
+    "run.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "storage.googleapis.com",
+    "cloudkms.googleapis.com",
+    "iam.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+  ])
+
+  service            = each.value
+  disable_on_destroy = false
+}

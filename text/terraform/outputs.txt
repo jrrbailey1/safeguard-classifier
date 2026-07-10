@@ -1,0 +1,34 @@
+output "endpoint_id" {
+  description = "Vertex AI endpoint ID (also injected into the Cloud Run Job as SAFEGUARD_ENDPOINT)"
+  value       = google_vertex_ai_endpoint.gpt_oss_safeguard.name
+}
+
+output "model_id" {
+  description = "Vertex AI model resource ID"
+  value       = data.external.model.result.name
+}
+
+output "dataset" {
+  description = "BigQuery dataset holding user_prompts and user_prompts_enriched"
+  value       = google_bigquery_dataset.safeguard.dataset_id
+}
+
+output "classifier_image" {
+  description = "Artifact Registry image the Cloud Run Job runs"
+  value       = local.classifier_img
+}
+
+output "job_name" {
+  description = "Cloud Run Job name"
+  value       = google_cloud_run_v2_job.classifier.name
+}
+
+output "runtime_service_account" {
+  description = "Service account the Cloud Run Job runs as"
+  value       = google_service_account.runtime.email
+}
+
+output "region" {
+  description = "Deployment region"
+  value       = var.region
+}

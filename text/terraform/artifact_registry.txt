@@ -1,0 +1,22 @@
+# Docker repository that holds the classifier container image.
+# kms_key_name is null unless CMEK is enabled (see kms.tf).
+resource "google_artifact_registry_repository" "safeguard" {
+  repository_id = var.repo_name
+  location      = var.region
+  format        = "DOCKER"
+  description   = "Safeguard classifier container images"
+  kms_key_name  = local.ar_kms_key
+
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.artifact_registry,
+  ]
+}
+
+# Least-privilege: the runtime SA may pull the image, nothing more.
+resource "google_artifact_registry_repository_iam_member" "runtime_reader" {
+  repository = google_artifact_registry_repository.safeguard.name
+  location   = var.region
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.runtime.email}"
+}

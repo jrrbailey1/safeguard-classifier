@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Identities and least-privilege bindings.
+#
+#   safeguard-runtime   — the identity the Cloud Run Job runs as
+#   safeguard-scheduler — the identity Cloud Scheduler uses to trigger the job
+#
+# Every grant is scoped to the narrowest resource that works: dataset-level
+# BigQuery editing, endpoint-level predict, repo-level image pull, job-level
+# invoke. Only the two grants with no resource-level equivalent (bigquery.jobUser,
+# logging.logWriter) are project-wide.
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "google_service_account" "runtime" {
+  account_id   = var.runtime_sa_id
+  display_name = "Safeguard Classifier Runtime"
+  depends_on   = [google_project_service.services]
+}
+
+resource "google_service_account" "scheduler" {
+  account_id   = var.scheduler_sa_id
+  display_name = "Safeguard Scheduler"
+  depends_on   = [google_project_service.services]
+}
+
+# Custom role: only what an inference caller needs — no ability to create,
+# modify, or delete any Vertex AI resource.
+resource "google_project_iam_custom_role" "predictor" {
+  role_id     = "safeguardPredictor"
+  title       = "Safeguard Predictor"
+  description = "Minimal permissions to call predict on the Safeguard endpoint"
+  permissions = [
+    "aiplatform.endpoints.predict",
+    "aiplatform.endpoints.get",
+  ]
+}
+
+# ── runtime SA bindings ───────────────────────────────────────────────────────
+
+# Dataset-scoped read/write (not project-wide dataEditor).
+resource "google_bigquery_dataset_iam_member" "runtime_data_editor" {
+  dataset_id = google_bigquery_dataset.safeguard.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+# Running a BigQuery job has no dataset-level equivalent — necessarily project-wide.
+resource "google_project_iam_member" "runtime_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+resource "google_project_iam_member" "runtime_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+# Endpoint-scoped predict (custom role above).
+# google_vertex_ai_endpoint_iam_member only exists in the google-beta provider.
+resource "google_vertex_ai_endpoint_iam_member" "runtime_predictor" {
+  provider = google-beta
+  project  = var.project_id
+  location = var.region
+  endpoint = google_vertex_ai_endpoint.gpt_oss_safeguard.name
+  role     = google_project_iam_custom_role.predictor.id
+  member   = "serviceAccount:${google_service_account.runtime.email}"
+}
+
+# ── scheduler SA binding ──────────────────────────────────────────────────────
+
+# Job-scoped invoke — can trigger only this one job, nothing else in the project.
+resource "google_cloud_run_v2_job_iam_member" "scheduler_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.classifier.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.scheduler.email}"
+}
+
+# ── optional: let the identity running Terraform deploy the job AS the runtime SA
+# (needed so google_cloud_run_v2_job can set service_account = runtime SA) ───────
+resource "google_service_account_iam_member" "deployer_act_as_runtime" {
+  count              = var.deployer_member == "" ? 0 : 1
+  service_account_id = google_service_account.runtime.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = var.deployer_member
+}
+
+# ── optional: model weights served from a GCS bucket (artifact_uri) ────────────
+# The Vertex AI service agent, not the runtime SA, reads the bucket at deploy time.
+resource "google_project_service_identity" "aiplatform" {
+  provider = google-beta
+  count    = var.model_bucket == "" ? 0 : 1
+  service  = "aiplatform.googleapis.com"
+}
+
+resource "google_storage_bucket_iam_member" "aiplatform_model_reader" {
+  count  = var.model_bucket == "" ? 0 : 1
+  bucket = var.model_bucket
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_project_service_identity.aiplatform[0].email}"
+}

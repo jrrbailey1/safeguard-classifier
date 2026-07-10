@@ -1,0 +1,31 @@
+# Periodic trigger. Calls the Cloud Run Admin API ":run" endpoint on a cron
+# schedule, authenticating as the scheduler SA (which is granted job-scoped
+# run.invoker in iam.tf). Default schedule is every 5 minutes; tighten to
+# "* * * * *" (every minute) for lower detection latency.
+resource "google_cloud_scheduler_job" "trigger" {
+  name      = "${var.job_name}-trigger"
+  region    = var.region
+  schedule  = var.schedule
+  time_zone = "Etc/UTC"
+
+  http_target {
+    http_method = "POST"
+    uri         = local.job_run_uri
+    body        = base64encode("{}")
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler.email
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+    }
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.classifier,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_project_service.services,
+  ]
+}

@@ -1,0 +1,31 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# main.tf — shared data sources, locals, and derived names.
+#
+# The infrastructure itself is split across concern-specific files:
+#   apis.tf              — API enablement
+#   kms.tf               — optional CMEK keys
+#   artifact_registry.tf — Docker repo for the classifier image
+#   storage.tf           — Cloud Build staging bucket
+#   bigquery.tf          — dataset + tables
+#   iam.tf               — service accounts, custom role, scoped bindings
+#   vertex.tf            — model + endpoint + model deployment
+#   build.tf             — build/push the classifier image (optional)
+#   cloud_run.tf         — the classifier job
+#   scheduler.tf         — the periodic trigger
+# ─────────────────────────────────────────────────────────────────────────────
+
+data "google_project" "this" {
+  project_id = var.project_id
+}
+
+locals {
+  project_number = data.google_project.this.number
+
+  # Derived resource names (kept identical to setup.sh / deploy.sh defaults so a
+  # migrated project matches the imperative scripts it replaces).
+  build_bucket   = var.build_bucket != "" ? var.build_bucket : "${var.project_id}-cloudbuild-${var.region}"
+  classifier_img = "${var.region}-docker.pkg.dev/${var.project_id}/${var.repo_name}/classifier:latest"
+
+  # The Cloud Run Admin API endpoint the scheduler calls to run the job once.
+  job_run_uri = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${var.job_name}:run"
+}

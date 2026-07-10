@@ -1,0 +1,49 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit it (it contains your project ID).
+
+# ── Required ───────────────────────────────────────────────────────────────────
+project_id = "my-gcp-project"
+region     = "europe-west2"
+
+# ── Encryption ─────────────────────────────────────────────────────────────────
+# Set true if your org enforces constraints/gcp.restrictNonCmekServices (creating
+# an Artifact Registry repo, BigQuery dataset, or bucket fails without a CMEK key).
+# The keys below must ALREADY EXIST — Terraform looks them up, it does not create
+# them. If you only made one key, set kms_key_ar and leave the other two blank
+# (they reuse kms_key_ar).
+enable_cmek = false
+# kms_keyring_name = "safeguard-keyring"
+# kms_key_ar       = "safeguard-repo-key"
+# kms_key_bq       = ""   # empty = reuse kms_key_ar
+# kms_key_storage  = ""   # empty = reuse kms_key_ar
+
+# If the key ring lives in a different project than project_id (e.g. a central
+# security/KMS project), set this. Leave blank if the ring is in project_id.
+# kms_project_id = "my-security-project"
+
+# ── Let Terraform deploy the job as the runtime SA ─────────────────────────────
+# The identity running `terraform apply` needs actAs on the runtime SA. If you are
+# not project Owner, set this to your member so Terraform grants it for you.
+# deployer_member = "user:you@example.com"
+
+# ── Scheduling ─────────────────────────────────────────────────────────────────
+# Every 5 minutes by default. Use "* * * * *" for ~1 min detection latency.
+# schedule = "*/5 * * * *"
+
+# ── Serving from a GCS bucket instead of HuggingFace (optional) ────────────────
+# model_bucket       = "my-model-bucket"
+# model_artifact_uri = "gs://my-model-bucket/gpt-oss-safeguard-20b/"
+
+# ── Machine / scale (defaults are production-proven values) ───────────────────
+machine_type      = "g2-standard-12"
+accelerator_type  = "NVIDIA_L4"
+accelerator_count = 1
+min_replica_count = 1
+max_replica_count = 2
+
+# Context window. 4096 is the confirmed limit on g2-standard-12. Raise (e.g.
+# "32768") only on a larger machine with the VRAM for a longer KV cache.
+# max_model_len = "4096"
+
+# Build the image during apply (true), or build it in CI and set false.
+# build_image = true

@@ -1,0 +1,6 @@
+# Ignore everything by default, then explicitly allow only what the build needs
+*
+!Dockerfile
+!requirements.txt
+!classifier.py
+!bigquery_io.py

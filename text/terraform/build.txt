@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional: build + push the classifier image via Cloud Build as part of apply.
+#
+# Terraform can create the Artifact Registry repo but cannot build a container
+# image itself, so this shells out to `gcloud builds submit` (the second of the
+# two unavoidable escape hatches; the first is model deployment in vertex.tf).
+#
+# Set build_image = false if you build/push the image in CI instead — then just
+# ensure the image referenced by local.classifier_img exists before apply.
+#
+# Re-runs whenever the application sources change (hash of the build context).
+# ─────────────────────────────────────────────────────────────────────────────
+
+resource "null_resource" "build_image" {
+  count = var.build_image ? 1 : 0
+
+  triggers = {
+    classifier   = filemd5("${path.module}/../classifier.py")
+    bigquery_io  = filemd5("${path.module}/../bigquery_io.py")
+    dockerfile   = filemd5("${path.module}/../Dockerfile")
+    requirements = filemd5("${path.module}/../requirements.txt")
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    working_dir = "${path.module}/.."
+    command     = <<-EOT
+      gcloud builds submit \
+        --tag ${local.classifier_img} \
+        --region=${var.region} \
+        --gcs-source-staging-dir=gs://${local.build_bucket}/source \
+        --project=${var.project_id} .
+    EOT
+  }
+
+  depends_on = [
+    google_artifact_registry_repository.safeguard,
+    google_storage_bucket.build,
+  ]
+}

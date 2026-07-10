@@ -1,0 +1,146 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Vertex AI: register the model, create a dedicated endpoint, deploy the model.
+#
+# Two serving modes:
+#   - default: vLLM pulls the model from HuggingFace by ID at container startup.
+#   - GCS mode: set model_bucket + model_artifact_uri to serve weights already
+#     staged in a bucket (artifact_uri). Note: a prebuilt vLLM container reads
+#     $AIP_STORAGE_URI itself, so no custom entrypoint is needed with the default
+#     model-garden image below.
+#
+# The actual deploy-model call has no native Terraform resource, so it runs via a
+# null_resource + gcloud (the one unavoidable shell-out).
+# ─────────────────────────────────────────────────────────────────────────────
+
+locals {
+  serve_from_gcs = var.model_artifact_uri != ""
+  # When serving from GCS, vLLM loads from the mounted local path; otherwise the HF id.
+  vllm_model_arg = local.serve_from_gcs ? "/gcs-model" : var.model_id
+}
+
+# google_vertex_ai_model does not exist in either the google or google-beta
+# provider (confirmed via `terraform providers schema -json` — Terraform has no
+# native resource for uploading/registering a Vertex AI model). Register it via
+# `gcloud ai models upload` instead, then look it back up by display name to get
+# the resource name downstream code needs (deploy-model, outputs).
+resource "null_resource" "upload_model" {
+  triggers = {
+    model_name      = var.model_name
+    served_name     = var.model_id
+    image_uri       = var.vllm_image_uri
+    artifact_uri    = local.serve_from_gcs ? var.model_artifact_uri : ""
+    vllm_model_arg  = local.vllm_model_arg
+    tensor_parallel = var.accelerator_count
+    gpu_mem_util    = var.gpu_memory_utilization
+    max_model_len   = var.max_model_len
+    dtype           = var.dtype
+    max_num_seqs    = var.max_num_seqs
+    region          = var.region
+    project         = var.project_id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      set -e
+      gcloud ai models upload \
+        --region=${var.region} \
+        --project=${var.project_id} \
+        --display-name=${var.model_name} \
+        --container-image-uri=${var.vllm_image_uri} \
+        --container-args="python,-m,vllm.entrypoints.api_server,--host=0.0.0.0,--port=8080,--model=${local.vllm_model_arg},--served-model-name=${var.model_id},--tensor-parallel-size=${var.accelerator_count},--gpu-memory-utilization=${var.gpu_memory_utilization},--max-model-len=${var.max_model_len},--dtype=${var.dtype},--max-num-seqs=${var.max_num_seqs},--disable-log-stats" \
+        --container-predict-route=/generate \
+        --container-health-route=/ping \
+        --container-ports=8080 \
+        %{if local.serve_from_gcs}--artifact-uri=${var.model_artifact_uri} \
+        %{endif}--quiet
+    EOT
+  }
+
+  # Best-effort teardown: delete the most recent model with this display name.
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      id=$(gcloud ai models list --region=${self.triggers.region} --project=${self.triggers.project} \
+        --filter="displayName=${self.triggers.model_name}" --format='value(name)' | tail -1)
+      [ -n "$id" ] && gcloud ai models delete "$id" --region=${self.triggers.region} --project=${self.triggers.project} --quiet || true
+    EOT
+  }
+
+  depends_on = [google_project_service.services]
+}
+
+# gcloud's `models upload` doesn't hand back the resource name directly (it's a
+# long-running operation) — look it up by display name once the upload completes.
+data "external" "model" {
+  program = ["bash", "-c", <<-EOT
+    id=$(gcloud ai models list --region=${var.region} --project=${var.project_id} \
+      --filter="displayName=${var.model_name}" --format='value(name)' | tail -1)
+    printf '{"name":"%s"}' "$id"
+  EOT
+  ]
+  depends_on = [null_resource.upload_model]
+}
+
+resource "google_vertex_ai_endpoint" "gpt_oss_safeguard" {
+  name                       = var.model_name
+  display_name               = var.model_name
+  location                   = var.region
+  dedicated_endpoint_enabled = var.use_dedicated_endpoint
+
+  depends_on = [google_project_service.services]
+}
+
+# No native TF resource for endpoint model deployment — shell out to gcloud.
+resource "null_resource" "deploy_model" {
+  # Any change to these forces the model to be re-deployed.
+  triggers = {
+    model_id      = data.external.model.result.name
+    machine_type  = var.machine_type
+    accelerator   = var.accelerator_type
+    replica_count = var.accelerator_count
+    # Captured for the destroy-time provisioner, which may only read self.triggers.
+    region        = var.region
+    project       = var.project_id
+    endpoint_name = google_vertex_ai_endpoint.gpt_oss_safeguard.name
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      gcloud ai endpoints deploy-model ${google_vertex_ai_endpoint.gpt_oss_safeguard.name} \
+        --region=${var.region} \
+        --project=${var.project_id} \
+        --model=${data.external.model.result.name} \
+        --display-name=${var.model_name}-deployed \
+        --machine-type=${var.machine_type} \
+        --accelerator=type=${var.accelerator_type},count=${var.accelerator_count} \
+        --min-replica-count=${var.min_replica_count} \
+        --max-replica-count=${var.max_replica_count} \
+        --traffic-split=0=100 \
+        --quiet
+    EOT
+  }
+
+  # Best-effort teardown: undeploy every model currently on the endpoint so the
+  # endpoint resource can be destroyed. Looks up deployed IDs at destroy time.
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      for id in $(gcloud ai endpoints describe ${self.triggers.endpoint_name} \
+        --region=${self.triggers.region} --project=${self.triggers.project} \
+        --format='value(deployedModels.id)' 2>/dev/null); do
+        gcloud ai endpoints undeploy-model ${self.triggers.endpoint_name} \
+          --region=${self.triggers.region} --project=${self.triggers.project} \
+          --deployed-model-id=$id --quiet || true
+      done
+    EOT
+  }
+
+  depends_on = [
+    data.external.model,
+    google_vertex_ai_endpoint.gpt_oss_safeguard,
+  ]
+}

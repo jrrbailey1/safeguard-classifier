@@ -1,0 +1,77 @@
+"""
+Deploy GPT-OSS-Safeguard-20b to a BRAND NEW Vertex AI endpoint.
+
+Use this when you need an additional endpoint (e.g. benchmark, large-context upgrade).
+For redeploying to the existing production endpoint, use deploy_endpoint.py instead.
+
+Current configuration: g4-standard-48 (2x NVIDIA RTX PRO 6000 Blackwell, ~192GB VRAM)
+Context window: 32,768 tokens — fits 10K+ character prompts with room for output.
+Sized for sustained throughput of ~500 prompts / 30s (~17 req/sec).
+
+*** UNVERIFIED CONFIG — CONFIRM BEFORE RUNNING ***
+G4 is new enough that machine_type/accelerator_type strings below are a
+best-effort guess, not confirmed against a live API response. A100 (any
+size) is not available at all in europe-west2 (confirmed absent from the
+Compute Engine GPU locations page), so G4 is the highest-VRAM option in this
+region; G2 (L4, what production already runs on) is the fallback if G4 turns
+out to be unsupported by Vertex AI's serving stack.
+
+Run this first and fix machine_type/accelerator_type/accelerator_count below
+to match whatever it actually returns:
+  gcloud ai model-garden models list-deployment-config \
+    --model=hf-openai/gpt-oss-safeguard-20b@001 \
+    --project=coeus-sorites --region=europe-west2
+If G4 doesn't appear in that list, Vertex AI's serving stack doesn't support
+it yet for this model regardless of Compute Engine zone availability — fall
+back to G2 (e.g. g2-standard-96, 8x L4, 192GB total) instead.
+
+Before running, also confirm you have G4 quota in europe-west2:
+  gcloud compute regions describe europe-west2 --project=coeus-sorites \
+    --format="table(quotas.metric,quotas.limit,quotas.usage)" | grep -i g4
+
+The machine spec below is a sizing starting point, not a validated one — confirm
+actual throughput at 32K context with a load test (real ~10K+ char prompts,
+sustained ~17 req/sec) before treating this as production-ready. Adjust
+--max-num-seqs and accelerator_count based on what the load test shows.
+
+After deployment the script prints the new endpoint ID.
+Set SAFEGUARD_ENDPOINT=<new_id> or update ENDPOINT_ID in classifier.py to use it.
+"""
+
+import vertexai
+from vertexai import model_garden
+
+PROJECT = "coeus-sorites"
+REGION  = "europe-west2"
+
+vertexai.init(project=PROJECT, location=REGION)
+
+model = model_garden.OpenModel("hf-openai/gpt-oss-safeguard-20b@001")
+
+print("Deploying to a new endpoint — this takes ~10 minutes...")
+
+endpoint = model.deploy(
+    accept_eula=True,
+    machine_type="g4-standard-48",       # UNVERIFIED — confirm via list-deployment-config
+    accelerator_type="NVIDIA_RTX_PRO_6000",  # UNVERIFIED — confirm via list-deployment-config
+    accelerator_count=2,
+    use_dedicated_endpoint=True,
+    reservation_affinity_type="ANY_RESERVATION",
+    endpoint_display_name="gpt-oss-safeguard-20b-large-context",
+    model_display_name="gpt-oss-safeguard-20b-large-context",
+    deploy_request_timeout=2400,
+    fast_tryout_enabled=False,
+    serving_container_args=[
+        "--tensor-parallel-size=2",
+        "--max-model-len=32768",
+        "--gpu-memory-utilization=0.9",
+        "--max-num-seqs=512",
+        "--dtype=auto",
+    ],
+)
+
+print(f"\nEndpoint deployed successfully.")
+print(f"Endpoint ID: {endpoint.name.split('/')[-1]}")
+print(f"\nTo use this endpoint:")
+print(f"  Set SAFEGUARD_ENDPOINT={endpoint.name.split('/')[-1]}")
+print(f"  Or update ENDPOINT_ID in classifier.py.")

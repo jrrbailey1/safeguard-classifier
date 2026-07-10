@@ -1,0 +1,209 @@
+# ── Core ──────────────────────────────────────────────────────────────────────
+variable "project_id" {
+  description = "GCP project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP region (must be allowed by org policy)"
+  type        = string
+  default     = "europe-west2"
+}
+
+# ── Resource names (defaults match the original setup.sh / deploy.sh) ──────────
+variable "dataset_name" {
+  description = "BigQuery dataset name"
+  type        = string
+  default     = "safeguard"
+}
+
+variable "repo_name" {
+  description = "Artifact Registry repository name"
+  type        = string
+  default     = "safeguard"
+}
+
+variable "build_bucket" {
+  description = "Cloud Build staging bucket. Empty = {project}-cloudbuild-{region}."
+  type        = string
+  default     = ""
+}
+
+variable "job_name" {
+  description = "Cloud Run Job name"
+  type        = string
+  default     = "safeguard-classifier"
+}
+
+variable "runtime_sa_id" {
+  description = "Account ID for the Cloud Run Job runtime service account"
+  type        = string
+  default     = "safeguard-runtime"
+}
+
+variable "scheduler_sa_id" {
+  description = "Account ID for the Cloud Scheduler service account"
+  type        = string
+  default     = "safeguard-scheduler"
+}
+
+# ── Scheduling / job behaviour ─────────────────────────────────────────────────
+variable "schedule" {
+  description = "Cron schedule for the trigger (default every 5 min)"
+  type        = string
+  default     = "*/5 * * * *"
+}
+
+variable "job_timeout_seconds" {
+  description = "Max seconds for a single job execution"
+  type        = number
+  default     = 600
+}
+
+variable "job_max_retries" {
+  description = "Cloud Run Job retry count per execution"
+  type        = number
+  default     = 3
+}
+
+# ── Image build ────────────────────────────────────────────────────────────────
+variable "build_image" {
+  description = "Build + push the classifier image via Cloud Build during apply. Set false if CI builds it."
+  type        = bool
+  default     = true
+}
+
+# ── Encryption ─────────────────────────────────────────────────────────────────
+variable "enable_cmek" {
+  description = "Create CMEK keys and encrypt AR/BigQuery/GCS with them (required by some org policies)"
+  type        = bool
+  default     = false
+}
+
+variable "kms_keyring_name" {
+  description = "Name of the EXISTING KMS key ring (only used when enable_cmek = true)"
+  type        = string
+  default     = "safeguard-keyring"
+}
+
+variable "kms_project_id" {
+  description = "Project ID that owns the KMS key ring/keys, if different from project_id (cross-project CMEK). Empty = same project."
+  type        = string
+  default     = ""
+}
+
+variable "kms_key_ar" {
+  description = "Existing crypto key name for Artifact Registry encryption"
+  type        = string
+  default     = "safeguard-repo-key"
+}
+
+variable "kms_key_bq" {
+  description = "Existing crypto key name for BigQuery. Empty = reuse kms_key_ar."
+  type        = string
+  default     = ""
+}
+
+variable "kms_key_storage" {
+  description = "Existing crypto key name for the Cloud Build bucket. Empty = reuse kms_key_ar."
+  type        = string
+  default     = ""
+}
+
+# ── Optional wiring ────────────────────────────────────────────────────────────
+variable "deployer_member" {
+  description = "IAM member (e.g. user:you@x.com) running Terraform, granted actAs on the runtime SA. Empty to skip."
+  type        = string
+  default     = ""
+}
+
+variable "model_bucket" {
+  description = "GCS bucket holding model weights (only for artifact_uri serving). Empty = HF-pull mode."
+  type        = string
+  default     = ""
+}
+
+variable "model_artifact_uri" {
+  description = "gs:// path to model artifacts. Empty = pull model from HuggingFace by ID."
+  type        = string
+  default     = ""
+}
+
+# ── Model serving ──────────────────────────────────────────────────────────────
+variable "model_name" {
+  description = "Display name for the model and endpoint"
+  type        = string
+  default     = "gpt-oss-safeguard-20b"
+}
+
+variable "model_id" {
+  description = "HuggingFace model ID to serve, and the served-model-name clients must send"
+  type        = string
+  default     = "openai/gpt-oss-safeguard-20b"
+}
+
+variable "vllm_image_uri" {
+  description = "Vertex AI prebuilt vLLM container image"
+  type        = string
+  default     = "us-docker.pkg.dev/vertex-ai/vertex-vision-model-garden-dockers/pytorch-vllm-serve:20260622_0916_RC01"
+}
+
+variable "machine_type" {
+  description = "Compute machine type"
+  type        = string
+  default     = "g2-standard-12"
+}
+
+variable "accelerator_type" {
+  description = "GPU accelerator type"
+  type        = string
+  default     = "NVIDIA_L4"
+}
+
+variable "accelerator_count" {
+  description = "Number of GPUs (also sets tensor-parallel-size)"
+  type        = number
+  default     = 1
+}
+
+variable "gpu_memory_utilization" {
+  description = "Fraction of GPU memory to use"
+  type        = string
+  default     = "0.9"
+}
+
+variable "max_model_len" {
+  description = "Maximum model context length"
+  type        = string
+  default     = "4096"
+}
+
+variable "dtype" {
+  description = "Data type for inference"
+  type        = string
+  default     = "auto"
+}
+
+variable "max_num_seqs" {
+  description = "Maximum number of sequences per batch"
+  type        = string
+  default     = "256"
+}
+
+variable "use_dedicated_endpoint" {
+  description = "Enable dedicated endpoint"
+  type        = bool
+  default     = true
+}
+
+variable "min_replica_count" {
+  description = "Minimum number of replicas (always-on)"
+  type        = number
+  default     = 1
+}
+
+variable "max_replica_count" {
+  description = "Maximum number of replicas (autoscaling ceiling)"
+  type        = number
+  default     = 2
+}

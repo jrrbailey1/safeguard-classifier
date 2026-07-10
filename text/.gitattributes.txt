@@ -1,0 +1,10 @@
+# Ensure shell scripts always use LF so they run correctly in Cloud Shell / Linux
+*.sh text eol=lf
+
+# Python and other text files use system line endings
+*.py text
+*.md text
+*.sql text
+*.tf text
+*.json text
+*.txt text

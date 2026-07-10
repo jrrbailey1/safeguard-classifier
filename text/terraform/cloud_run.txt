@@ -1,0 +1,42 @@
+# The classifier itself: a Cloud Run Job that, each execution, claims unclassified
+# rows, calls the endpoint, and writes results. Runs as the least-privilege
+# runtime SA. The endpoint ID is injected as an env var so the image is config-free.
+resource "google_cloud_run_v2_job" "classifier" {
+  name     = var.job_name
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.runtime.email
+      timeout         = "${var.job_timeout_seconds}s"
+      max_retries     = var.job_max_retries
+
+      containers {
+        image = local.classifier_img
+
+        env {
+          name  = "SAFEGUARD_PROJECT"
+          value = var.project_id
+        }
+        env {
+          name  = "SAFEGUARD_REGION"
+          value = var.region
+        }
+        env {
+          name  = "SAFEGUARD_DATASET"
+          value = var.dataset_name
+        }
+        env {
+          name  = "SAFEGUARD_ENDPOINT"
+          value = google_vertex_ai_endpoint.gpt_oss_safeguard.name
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_vertex_ai_endpoint.gpt_oss_safeguard,
+    null_resource.build_image,
+    google_artifact_registry_repository_iam_member.runtime_reader,
+  ]
+}
